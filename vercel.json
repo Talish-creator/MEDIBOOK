@@ -4,11 +4,7 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/erpnext/(.*)",
-      "destination": "https://key.solutions.bitvera.co/api/$1"
-    },
-    {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]

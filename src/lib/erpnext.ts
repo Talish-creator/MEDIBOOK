@@ -1,6 +1,10 @@
 import type { Appointment } from "./data/types";
 import { findDoctor, specialtyName } from "./store";
 
+const ERPNEXT_URL = "https://key.solutions.bitvera.co";
+const ERPNEXT_API_KEY = "45ec974ff12c04b";
+const ERPNEXT_API_SECRET = "4179a5d5fc9909d";
+
 export interface ERPNextAppointmentPayload {
   doctype: "MediBook Appointment";
   appointment_id: string;
@@ -18,7 +22,8 @@ export interface ERPNextAppointmentPayload {
 }
 
 /**
- * Sends a real-time booking payload to ERPNext MediBook Appointment DocType via Vercel Serverless Function (/api/sync)
+ * Sends a real-time booking payload to ERPNext MediBook Appointment DocType.
+ * Tries Vercel Serverless Function first (/api/sync), and falls back directly to ERPNext REST API.
  */
 export async function sendAppointmentToERPNext(appointment: Appointment): Promise<boolean> {
   const doctor = findDoctor(appointment.doctorId);
@@ -45,28 +50,48 @@ export async function sendAppointmentToERPNext(appointment: Appointment): Promis
   };
 
   const isBrowser = typeof window !== "undefined";
-  const targetUrl = isBrowser ? `${window.location.origin}/api/sync` : "/api/sync";
 
+  // Strategy 1: Attempt Vercel Serverless API Function (/api/sync)
+  if (isBrowser) {
+    try {
+      const serverlessRes = await fetch(`${window.location.origin}/api/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const contentType = serverlessRes.headers.get("content-type") || "";
+      if (serverlessRes.ok && contentType.includes("application/json")) {
+        const json = await serverlessRes.json();
+        console.log(`[ERPNext Sync Success via API Function] ${appointment.id}:`, json);
+        return true;
+      }
+    } catch (e) {
+      console.warn("[Vercel API Sync Retry Notice]:", e);
+    }
+  }
+
+  // Strategy 2: Direct REST Sync Fallback
   try {
-    const res = await fetch(targetUrl, {
+    const res = await fetch(`${ERPNEXT_URL}/api/resource/MediBook Appointment`, {
       method: "POST",
       headers: {
+        Authorization: `token ${ERPNEXT_API_KEY}:${ERPNEXT_API_SECRET}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
     });
 
     if (res.ok) {
-      const json = await res.json();
-      console.log(`[ERPNext Sync Success] Sent Appointment ${appointment.id}:`, json);
+      console.log(`[ERPNext Direct Sync Success] ${appointment.id}`);
       return true;
     } else {
       const errText = await res.text();
-      console.error(`[ERPNext Sync Error ${res.status}]:`, errText);
+      console.error(`[ERPNext Sync Response Error ${res.status}]:`, errText);
       return false;
     }
   } catch (err) {
-    console.error("[ERPNext Network Exception]:", err);
+    console.error("[ERPNext Direct Network Exception]:", err);
     return false;
   }
 }
