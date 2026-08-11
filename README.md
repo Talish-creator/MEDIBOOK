@@ -1,29 +1,31 @@
-# Welcome to your Lovable project
+# MediBook — Healthcare Platform
 
-This project was built with [Lovable](https://lovable.dev).
+MediBook is a production-quality digital healthcare platform for Saudi Arabia connecting patients with accredited doctors, hospitals, and clinics.
 
-## Build with Lovable
+## Features
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+- **Patient Portal**: Book appointments, manage medical records, view prescriptions, message doctors, track family profiles, and review invoices.
+- **Doctor Portal**: Practice management dashboard, today's schedule, patient records access, consultation management, and earnings analytics.
+- **Admin Portal**: Platform-wide metrics, doctor credential verification queue, facility management, reviews moderation, and support ticketing.
 
 ## Development
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Requires Node.js and npm:
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+npm install
 npm run dev
 ```
 
-## Built with
+## Production Build
 
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
+```sh
+npm run build
+npm run preview
+```
+
+## Built With
+
+- TanStack Start (Nitro + Vite)
+- React & TypeScript
+- Tailwind CSS & Radix UI
