@@ -1,12 +1,6 @@
 import type { Appointment } from "./data/types";
 import { findDoctor, specialtyName } from "./store";
 
-const ERPNEXT_API_KEY =
-  (import.meta.env.VITE_ERPNEXT_API_KEY as string | undefined) || "45ec974ff12c04b";
-
-const ERPNEXT_API_SECRET =
-  (import.meta.env.VITE_ERPNEXT_API_SECRET as string | undefined) || "4179a5d5fc9909d";
-
 export interface ERPNextAppointmentPayload {
   doctype: "MediBook Appointment";
   appointment_id: string;
@@ -24,8 +18,7 @@ export interface ERPNextAppointmentPayload {
 }
 
 /**
- * Sends a real-time booking payload to ERPNext MediBook Appointment DocType.
- * Uses Vercel proxy (/api/erpnext/resource/...) to prevent CORS browser block.
+ * Sends a real-time booking payload to ERPNext MediBook Appointment DocType via Vercel Serverless Function (/api/sync)
  */
 export async function sendAppointmentToERPNext(appointment: Appointment): Promise<boolean> {
   const doctor = findDoctor(appointment.doctorId);
@@ -51,24 +44,21 @@ export async function sendAppointmentToERPNext(appointment: Appointment): Promis
     payment_status: appointment.paymentStatus === "Paid" ? "Paid" : "Pending",
   };
 
-  // Determine endpoint URL: use Vercel proxy rewrite for web clients to bypass CORS
   const isBrowser = typeof window !== "undefined";
-  const targetUrl = isBrowser
-    ? `${window.location.origin}/api/erpnext/resource/MediBook Appointment`
-    : "https://key.solutions.bitvera.co/api/resource/MediBook Appointment";
+  const targetUrl = isBrowser ? `${window.location.origin}/api/sync` : "/api/sync";
 
   try {
     const res = await fetch(targetUrl, {
       method: "POST",
       headers: {
-        Authorization: `token ${ERPNEXT_API_KEY}:${ERPNEXT_API_SECRET}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
     });
 
     if (res.ok) {
-      console.log(`[ERPNext Sync Success] Sent Appointment ${appointment.id} to ERPNext.`);
+      const json = await res.json();
+      console.log(`[ERPNext Sync Success] Sent Appointment ${appointment.id}:`, json);
       return true;
     } else {
       const errText = await res.text();
