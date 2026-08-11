@@ -290,7 +290,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...s.notifications,
         ],
       }));
-      void sendAppointmentToERPNext(appointment);
+      const specName = seed.specialties.find((s) => s.id === doctor.specialtyId)?.name ?? "Specialist";
+      void sendAppointmentToERPNext(appointment, doctor.name, specName);
       return appointment;
     },
 

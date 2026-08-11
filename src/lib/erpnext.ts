@@ -1,9 +1,4 @@
 import type { Appointment } from "./data/types";
-import { findDoctor, specialtyName } from "./store";
-
-const ERPNEXT_URL = "https://key.solutions.bitvera.co";
-const ERPNEXT_API_KEY = "45ec974ff12c04b";
-const ERPNEXT_API_SECRET = "4179a5d5fc9909d";
 
 export interface ERPNextAppointmentPayload {
   doctype: "MediBook Appointment";
@@ -23,19 +18,22 @@ export interface ERPNextAppointmentPayload {
 
 /**
  * Sends a real-time booking payload to ERPNext MediBook Appointment DocType.
- * Tries Vercel Serverless Function first (/api/sync), and falls back directly to ERPNext REST API.
+ * Uses Vercel Serverless Function /api/sync (same-origin, no CORS issues).
+ *
+ * NOTE: doctorName and specialty are passed in explicitly to avoid a circular
+ * dependency between this module and store.tsx.
  */
-export async function sendAppointmentToERPNext(appointment: Appointment): Promise<boolean> {
-  const doctor = findDoctor(appointment.doctorId);
-  const doctorName = doctor?.name ?? "Doctor";
-  const specName = doctor ? specialtyName(doctor.specialtyId) : "General";
-
+export async function sendAppointmentToERPNext(
+  appointment: Appointment,
+  doctorName: string,
+  specialty: string,
+): Promise<boolean> {
   const payload: ERPNextAppointmentPayload = {
     doctype: "MediBook Appointment",
     appointment_id: appointment.id,
     patient_name: appointment.forName,
     doctor_name: doctorName,
-    specialty: specName,
+    specialty: specialty,
     appointment_date: appointment.date,
     appointment_time: appointment.time,
     consultation_type:
@@ -54,7 +52,10 @@ export async function sendAppointmentToERPNext(appointment: Appointment): Promis
   // Strategy 1: Attempt Vercel Serverless API Function (/api/sync)
   if (isBrowser) {
     try {
-      const serverlessRes = await fetch(`${window.location.origin}/api/sync`, {
+      const syncUrl = `${window.location.origin}/api/sync`;
+      console.log(`[ERPNext] Syncing ${appointment.id} via ${syncUrl}...`);
+
+      const serverlessRes = await fetch(syncUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -63,35 +64,57 @@ export async function sendAppointmentToERPNext(appointment: Appointment): Promis
       const contentType = serverlessRes.headers.get("content-type") || "";
       if (serverlessRes.ok && contentType.includes("application/json")) {
         const json = await serverlessRes.json();
-        console.log(`[ERPNext Sync Success via API Function] ${appointment.id}:`, json);
+        console.log(
+          `[ERPNext] ✅ Sync SUCCESS via /api/sync for ${appointment.id}`,
+          json,
+        );
         return true;
+      } else {
+        const errText = await serverlessRes.text();
+        console.error(
+          `[ERPNext] ❌ /api/sync returned ${serverlessRes.status}:`,
+          errText.substring(0, 200),
+        );
       }
     } catch (e) {
-      console.warn("[Vercel API Sync Retry Notice]:", e);
+      console.warn("[ERPNext] /api/sync network error:", e);
     }
   }
 
-  // Strategy 2: Direct REST Sync Fallback
+  // Strategy 2: Direct REST API fallback (works from Node.js / server-side)
   try {
-    const res = await fetch(`${ERPNEXT_URL}/api/resource/MediBook Appointment`, {
-      method: "POST",
-      headers: {
-        Authorization: `token ${ERPNEXT_API_KEY}:${ERPNEXT_API_SECRET}`,
-        "Content-Type": "application/json",
+    const ERPNEXT_URL = "https://key.solutions.bitvera.co";
+    const ERPNEXT_API_KEY = "45ec974ff12c04b";
+    const ERPNEXT_API_SECRET = "4179a5d5fc9909d";
+
+    console.log(
+      `[ERPNext] Attempting direct REST API sync for ${appointment.id}...`,
+    );
+    const res = await fetch(
+      `${ERPNEXT_URL}/api/resource/MediBook Appointment`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `token ${ERPNEXT_API_KEY}:${ERPNEXT_API_SECRET}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    });
+    );
 
     if (res.ok) {
-      console.log(`[ERPNext Direct Sync Success] ${appointment.id}`);
+      console.log(`[ERPNext] ✅ Direct sync SUCCESS for ${appointment.id}`);
       return true;
     } else {
       const errText = await res.text();
-      console.error(`[ERPNext Sync Response Error ${res.status}]:`, errText);
+      console.error(
+        `[ERPNext] ❌ Direct sync error ${res.status}:`,
+        errText.substring(0, 200),
+      );
       return false;
     }
   } catch (err) {
-    console.error("[ERPNext Direct Network Exception]:", err);
+    console.error("[ERPNext] ❌ Direct sync network exception:", err);
     return false;
   }
 }
