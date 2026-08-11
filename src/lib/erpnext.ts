@@ -53,7 +53,12 @@ export async function sendAppointmentToERPNext(appointment: Appointment): Promis
     specialty: specName,
     appointment_date: appointment.date,
     appointment_time: appointment.time,
-    consultation_type: appointment.type === "in-clinic" ? "In-Clinic" : appointment.type === "video" ? "Video" : "Audio",
+    consultation_type:
+      appointment.type === "in-clinic"
+        ? "In-Clinic"
+        : appointment.type === "video"
+          ? "Video"
+          : "Audio",
     fee: appointment.fee,
     status: appointment.status === "confirmed" ? "Confirmed" : "Pending",
     payment_status: appointment.paymentStatus === "Paid" ? "Paid" : "Pending",
