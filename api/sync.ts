@@ -1,49 +1,37 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-export default async function handler(req: IncomingMessage, res: ServerResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {
-    res.statusCode = 200;
-    res.end();
-    return;
+    return res.status(200).end();
   }
 
   if (req.method !== "POST") {
-    res.statusCode = 405;
-    res.end(JSON.stringify({ error: "Method not allowed" }));
-    return;
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   const ERPNEXT_URL = process.env.ERPNEXT_URL || "https://key.solutions.bitvera.co";
   const ERPNEXT_API_KEY = process.env.ERPNEXT_API_KEY || "45ec974ff12c04b";
   const ERPNEXT_API_SECRET = process.env.ERPNEXT_API_SECRET || "4179a5d5fc9909d";
 
-  let bodyStr = "";
-  for await (const chunk of req) {
-    bodyStr += chunk;
-  }
-
   try {
+    const payload = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
     const erpRes = await fetch(`${ERPNEXT_URL}/api/resource/MediBook Appointment`, {
       method: "POST",
       headers: {
         Authorization: `token ${ERPNEXT_API_KEY}:${ERPNEXT_API_SECRET}`,
         "Content-Type": "application/json",
       },
-      body: bodyStr,
+      body: JSON.stringify(payload),
     });
 
-    const data = await erpRes.text();
-    res.statusCode = erpRes.status;
-    res.setHeader("Content-Type", "application/json");
-    res.end(data);
+    const data = await erpRes.json();
+    return res.status(erpRes.status).json(data);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    res.statusCode = 500;
-    res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ error: message }));
+    return res.status(500).json({ error: message });
   }
 }
