@@ -1,20 +1,11 @@
 import type { Appointment } from "./data/types";
 import { findDoctor, specialtyName } from "./store";
 
-// Pure server-side environment variable lookups (Zero browser leakage)
-const getEnv = (key: string): string | undefined => {
-  if (typeof process !== "undefined" && process.env && process.env[key]) {
-    return process.env[key];
-  }
-  if (typeof import.meta !== "undefined" && import.meta.env) {
-    return (import.meta.env[key] as string) || (import.meta.env[`VITE_${key}`] as string);
-  }
-  return undefined;
-};
+const ERPNEXT_API_KEY =
+  (import.meta.env.VITE_ERPNEXT_API_KEY as string | undefined) || "45ec974ff12c04b";
 
-const ERPNEXT_URL = getEnv("ERPNEXT_URL") || "https://key.solutions.bitvera.co";
-const ERPNEXT_API_KEY = getEnv("ERPNEXT_API_KEY") || "45ec974ff12c04b";
-const ERPNEXT_API_SECRET = getEnv("ERPNEXT_API_SECRET") || "4179a5d5fc9909d";
+const ERPNEXT_API_SECRET =
+  (import.meta.env.VITE_ERPNEXT_API_SECRET as string | undefined) || "4179a5d5fc9909d";
 
 export interface ERPNextAppointmentPayload {
   doctype: "MediBook Appointment";
@@ -33,14 +24,10 @@ export interface ERPNextAppointmentPayload {
 }
 
 /**
- * Sends a real-time booking payload to ERPNext MediBook Appointment DocType
+ * Sends a real-time booking payload to ERPNext MediBook Appointment DocType.
+ * Uses Vercel proxy (/api/erpnext/resource/...) to prevent CORS browser block.
  */
 export async function sendAppointmentToERPNext(appointment: Appointment): Promise<boolean> {
-  if (!ERPNEXT_URL || !ERPNEXT_API_KEY || !ERPNEXT_API_SECRET) {
-    console.warn("ERPNext credentials not configured; skipping sync.");
-    return false;
-  }
-
   const doctor = findDoctor(appointment.doctorId);
   const doctorName = doctor?.name ?? "Doctor";
   const specName = doctor ? specialtyName(doctor.specialtyId) : "General";
@@ -64,8 +51,14 @@ export async function sendAppointmentToERPNext(appointment: Appointment): Promis
     payment_status: appointment.paymentStatus === "Paid" ? "Paid" : "Pending",
   };
 
+  // Determine endpoint URL: use Vercel proxy rewrite for web clients to bypass CORS
+  const isBrowser = typeof window !== "undefined";
+  const targetUrl = isBrowser
+    ? `${window.location.origin}/api/erpnext/resource/MediBook Appointment`
+    : "https://key.solutions.bitvera.co/api/resource/MediBook Appointment";
+
   try {
-    const res = await fetch(`${ERPNEXT_URL}/api/resource/MediBook Appointment`, {
+    const res = await fetch(targetUrl, {
       method: "POST",
       headers: {
         Authorization: `token ${ERPNEXT_API_KEY}:${ERPNEXT_API_SECRET}`,
