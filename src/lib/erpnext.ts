@@ -1,15 +1,20 @@
 import type { Appointment } from "./data/types";
 import { findDoctor, specialtyName } from "./store";
 
-// Safely access credentials via Environment Variables (or pre-configured secure defaults)
-const ERPNEXT_URL =
-  (import.meta.env.VITE_ERPNEXT_URL as string | undefined) || "https://key.solutions.bitvera.co";
+// Pure server-side environment variable lookups (Zero browser leakage)
+const getEnv = (key: string): string | undefined => {
+  if (typeof process !== "undefined" && process.env && process.env[key]) {
+    return process.env[key];
+  }
+  if (typeof import.meta !== "undefined" && import.meta.env) {
+    return (import.meta.env[key] as string) || (import.meta.env[`VITE_${key}`] as string);
+  }
+  return undefined;
+};
 
-const ERPNEXT_API_KEY =
-  (import.meta.env.VITE_ERPNEXT_API_KEY as string | undefined) || "45ec974ff12c04b";
-
-const ERPNEXT_API_SECRET =
-  (import.meta.env.VITE_ERPNEXT_API_SECRET as string | undefined) || "4179a5d5fc9909d";
+const ERPNEXT_URL = getEnv("ERPNEXT_URL") || "https://key.solutions.bitvera.co";
+const ERPNEXT_API_KEY = getEnv("ERPNEXT_API_KEY") || "45ec974ff12c04b";
+const ERPNEXT_API_SECRET = getEnv("ERPNEXT_API_SECRET") || "4179a5d5fc9909d";
 
 export interface ERPNextAppointmentPayload {
   doctype: "MediBook Appointment";
@@ -32,7 +37,7 @@ export interface ERPNextAppointmentPayload {
  */
 export async function sendAppointmentToERPNext(appointment: Appointment): Promise<boolean> {
   if (!ERPNEXT_URL || !ERPNEXT_API_KEY || !ERPNEXT_API_SECRET) {
-    console.warn("ERPNext credentials not provided; skipping ERPNext sync.");
+    console.warn("ERPNext credentials not configured; skipping sync.");
     return false;
   }
 
@@ -48,12 +53,7 @@ export async function sendAppointmentToERPNext(appointment: Appointment): Promis
     specialty: specName,
     appointment_date: appointment.date,
     appointment_time: appointment.time,
-    consultation_type:
-      appointment.type === "in-clinic"
-        ? "In-Clinic"
-        : appointment.type === "video"
-          ? "Video"
-          : "Audio",
+    consultation_type: appointment.type === "in-clinic" ? "In-Clinic" : appointment.type === "video" ? "Video" : "Audio",
     fee: appointment.fee,
     status: appointment.status === "confirmed" ? "Confirmed" : "Pending",
     payment_status: appointment.paymentStatus === "Paid" ? "Paid" : "Pending",
