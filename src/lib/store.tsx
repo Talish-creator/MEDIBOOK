@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import * as seed from "./data/seed";
+import { sendAppointmentToERPNext } from "./erpnext";
 import type {
   Account,
   Appointment,
@@ -289,6 +290,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...s.notifications,
         ],
       }));
+      void sendAppointmentToERPNext(appointment);
       return appointment;
     },
 
