@@ -63,8 +63,9 @@ function removeFromPendingQueue(appointmentId: string) {
 }
 
 /**
- * Sends a real-time booking payload to ERPNext MediBook Appointment DocType.
- * Uses `keepalive: true` so browser navigation or component unmounting doesn't cancel HTTP POST.
+ * Sends a real-time booking payload to ERPNext MediBook Appointment DocType via
+ * Vercel Serverless Function (/api/sync).
+ * Zero API keys are included in client JavaScript code.
  */
 export async function sendAppointmentToERPNext(
   appointment: Appointment,
@@ -87,15 +88,17 @@ export async function sendAppointmentToERPNext(
           : "Audio",
     fee: appointment.fee,
     status: appointment.status === "confirmed" ? "Confirmed" : "Pending",
-    payment_status: appointment.paymentStatus === "Paid" ? "Paid" : "Pending",
+    payment_status:
+      appointment.paymentStatus === "Paid"
+        ? "Paid"
+        : appointment.paymentStatus === "Pay at Clinic"
+          ? "Pay at Clinic"
+          : "Pending",
   };
 
   addToPendingQueue(appointment, doctorName, specialty);
 
-  const isBrowser = typeof window !== "undefined";
-
-  // Strategy 1: Attempt Vercel Serverless API Function (/api/sync)
-  if (isBrowser) {
+  if (typeof window !== "undefined") {
     try {
       const syncUrl = `${window.location.origin}/api/sync`;
       console.log(`[ERPNext] Syncing ${appointment.id} via ${syncUrl}...`);
@@ -119,42 +122,15 @@ export async function sendAppointmentToERPNext(
           `[ERPNext] ❌ /api/sync returned ${serverlessRes.status}:`,
           errText.substring(0, 200),
         );
+        return false;
       }
     } catch (e) {
       console.warn("[ERPNext] /api/sync network error:", e);
-    }
-  }
-
-  // Strategy 2: Direct REST API fallback (works from Node.js / server-side)
-  try {
-    const ERPNEXT_URL = "https://key.solutions.bitvera.co";
-    const ERPNEXT_API_KEY = "45ec974ff12c04b";
-    const ERPNEXT_API_SECRET = "4179a5d5fc9909d";
-
-    console.log(`[ERPNext] Attempting direct REST API sync for ${appointment.id}...`);
-    const res = await fetch(`${ERPNEXT_URL}/api/resource/MediBook Appointment`, {
-      method: "POST",
-      headers: {
-        Authorization: `token ${ERPNEXT_API_KEY}:${ERPNEXT_API_SECRET}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-      keepalive: true,
-    });
-
-    if (res.ok) {
-      console.log(`[ERPNext] ✅ Direct sync SUCCESS for ${appointment.id}`);
-      removeFromPendingQueue(appointment.id);
-      return true;
-    } else {
-      const errText = await res.text();
-      console.error(`[ERPNext] ❌ Direct sync error ${res.status}:`, errText.substring(0, 200));
       return false;
     }
-  } catch (err) {
-    console.error("[ERPNext] ❌ Direct sync network exception:", err);
-    return false;
   }
+
+  return false;
 }
 
 /**
