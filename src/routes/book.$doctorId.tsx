@@ -547,7 +547,19 @@ function BookingFlow() {
                     label="Where"
                     value={isOnline ? "Online consultation" : findClinic(clinicId)!.name}
                   />
-                  <Row label="Paid" value={currency(total)} />
+                  <Row
+                    label="Payment Method"
+                    value={method === "Cash" ? "Pay at Clinic" : method}
+                  />
+                  <Row
+                    label="Payment Status"
+                    value={
+                      method === "Cash" || method === "Insurance"
+                        ? "Pay at Clinic (Pending)"
+                        : "Paid"
+                    }
+                  />
+                  <Row label="Total Amount" value={currency(total)} />
                 </div>
                 <div className="mt-6 flex flex-wrap justify-center gap-2">
                   <Button asChild>
@@ -572,7 +584,9 @@ function BookingFlow() {
                 {step === 3 ? (
                   <Button onClick={pay} disabled={processing} size="lg">
                     {processing && <Loader2 className="size-4 animate-spin" />}
-                    Pay {currency(total)}
+                    {method === "Cash" || method === "Insurance"
+                      ? "Confirm Booking (Pay at Clinic)"
+                      : `Pay ${currency(total)}`}
                   </Button>
                 ) : (
                   <Button onClick={next} size="lg">

@@ -8,7 +8,8 @@ export type VerificationStatus = "Pending" | "Under Review" | "Verified" | "Reje
 export type AppointmentType = "in-clinic" | "video" | "audio";
 export type AppointmentStatus =
   "upcoming" | "confirmed" | "completed" | "cancelled" | "rescheduled";
-export type PaymentStatus = "Pending" | "Paid" | "Failed" | "Refunded" | "Partially refunded";
+export type PaymentStatus =
+  "Pending" | "Paid" | "Failed" | "Refunded" | "Partially refunded" | "Pay at Clinic";
 
 export interface Specialty {
   id: string;

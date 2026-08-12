@@ -247,6 +247,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const member = draft.familyMemberId
         ? state.family.find((f) => f.id === draft.familyMemberId)
         : null;
+      const isPayAtClinic =
+        method === "Cash" || method === "Insurance" || method === "Pay at clinic";
+      const paymentStatus: PaymentStatus = isPayAtClinic ? "Pay at Clinic" : "Paid";
+
       const appointment: Appointment = {
         id: `APT-${Math.floor(100000 + Math.random() * 899999)}`,
         doctorId: draft.doctorId,
@@ -260,7 +264,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         status: "confirmed",
         reason: draft.reason,
         fee: draft.fee,
-        paymentStatus: "Paid",
+        paymentStatus,
         paymentMethod: method,
         createdAt: new Date().toISOString().slice(0, 10),
         documents: draft.documents,
@@ -273,7 +277,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         amount: draft.fee,
         tax: Math.round(draft.fee * 0.15),
         method,
-        status: "Paid",
+        status: isPayAtClinic ? "Pending" : "Paid",
         date: appointment.createdAt,
         transactionId: `TXN${Math.floor(10000000 + Math.random() * 89999999)}`,
       };
