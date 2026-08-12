@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import * as seed from "./data/seed";
-import { sendAppointmentToERPNext } from "./erpnext";
+import { sendAppointmentToERPNext, processPendingSyncs } from "./erpnext";
 import type {
   Account,
   Appointment,
@@ -141,6 +141,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     }
     setHydrated(true);
+    void processPendingSyncs();
+    const syncInterval = setInterval(() => {
+      void processPendingSyncs();
+    }, 10000);
+    return () => clearInterval(syncInterval);
   }, []);
 
   useEffect(() => {
@@ -290,7 +295,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...s.notifications,
         ],
       }));
-      const specName = seed.specialties.find((s) => s.id === doctor.specialtyId)?.name ?? "Specialist";
+      const specName =
+        seed.specialties.find((s) => s.id === doctor.specialtyId)?.name ?? "Specialist";
       void sendAppointmentToERPNext(appointment, doctor.name, specName);
       return appointment;
     },
